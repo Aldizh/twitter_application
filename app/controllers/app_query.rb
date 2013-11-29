@@ -53,19 +53,15 @@ class AppQuery
   # Output: None
   def get_posts_for_location(location_id)
     @location = Location.find_by_id(location_id)
-    newArray = []
+    posts_per_location = []
     num = 0
-    @posts = Post.where(:location_id => location_id).order("created_at DESC")
-    if(posts == nil or posts.size == 0)
-	    @posts = []
-    else
-    	posts.each do |entry|
-		    name = User.find(entry[:user_id])[:name]
-		    newArray[num] = {:author_id => entry[:user_id], :author => name, :text => entry[:text], :created_at => entry[:created_at], :location => @location}
-		    num+=1
-   	  end
-    end
-    @posts = newArray
+    posts = Post.where(:location_id => location_id).order("created_at DESC")
+  	posts.each do |entry|
+	    name = User.find(entry[:user_id])[:name]
+	    posts_per_location[num] = {:author_id => entry[:user_id], :author => name, :text => entry[:text], :created_at => entry[:created_at], :location => @location}
+	    num+=1
+ 	  end
+    @posts = posts_per_location
   end
 
   # Purpose: Show the current user's stream of posts from all the locations the user follows
@@ -86,30 +82,15 @@ class AppQuery
   #         * :longitude - the longitude
   # Output: None
   def get_stream_for_user(user_id)
-    newArray = []
+    user_posts = []
     num = 0
-    locArray = []
-    followed_locations = Follow.joins(:location).where(:user_id => user_id).select("locations.id")
-    if(followed_locations == nil or followed_locations.size == 0)
-  	@posts = []
-    else
-	    followed_locations.each do |loc|
-		locArray[num] = loc[:id]
-  		num+=1
-	    end
-	    num = 0
-	    posts = Post.where(:location_id => locArray).order("created_at DESC")
-	    if(posts == nil or posts.size == 0)
-		@posts = []
-	    else
-	    	posts.each do |entry|
-			name = User.find(entry[:user_id])[:name]
-			newArray[num] = {:author_id => entry[:user_id], :author => name, :text => entry[:text], :created_at => entry[:created_at], :location => Location.find(entry[:location_id])}
-			num+=1
-	   	 end
-	    end
-	    @posts = newArray
+    posts = Post.where(:location_id => Follow.joins(:location).where(:user_id => user_id).select("location_id")).order("created_at DESC")
+  	posts.each do |entry|
+		  name = User.find(entry[:user_id])[:name]
+		  user_posts[num] = {:author_id => entry[:user_id], :author => name, :text => entry[:text], :created_at => entry[:created_at], :location => Location.find(entry[:location_id])}
+	    num+=1
     end
+    @posts = user_posts || []
   end
 
   # Purpose: Retrieve the locations within a GPS bounding box
@@ -134,20 +115,20 @@ class AppQuery
    # @locations = ActiveRecord::Base.connection.execute("SELECT * FROM locations L WHERE L.latitude BETWEEN " +swlat + "AND " + nelat +"AND L.longitude BETWEEN "+swlng +"AND "+nelng+ "LIMIT 5 ORDER BY L.latitude ASC")
     locs = Location.where(:latitude => swlat.to_f..nelat.to_f, :longitude => swlng.to_f..nelng.to_f).order("latitude ASC").limit(50)
     num = 0
-    newArray = []
-    if(locs == nil or locs.size == 0)
+    locations = []
+    if not locs or locs.empty?
     	locs = []
     else
     	locs.each do |entry|
-        	stuff = Follow.where(:location_id => entry[:id], :user_id => user_id)
-		newArray[num] = {:id => entry[:id], :name => entry[:name], :latitude => entry[:latitude], :longitude => entry[:longitude], :follows => false}
-        	if(stuff.size != 0)
-        	  newArray[num][:follows] = true
+        	followed = Follow.where(:location_id => entry[:id], :user_id => user_id)
+		      locations[num] = {:id => entry[:id], :name => entry[:name], :latitude => entry[:latitude], :longitude => entry[:longitude], :follows => false}
+        	if(not followed.empty?)
+        	  locations[num][:follows] = true
         	end
        	 num+=1
          end
     end
-    @locations = newArray
+    @locations = locations
   end 
 
   # Purpose: Create a new location

@@ -17,7 +17,7 @@ class User < ActiveRecord::Base
   ############################################
   has_many :follows
   has_many :posts
-  has_many :location, :through => :follows
+  has_many :locations, :through => :follows
   def to_hash
     {
       :id => self.id,
